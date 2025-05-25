@@ -13,6 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
+# Scikit-learn imports for metrics
+from sklearn.metrics import roc_curve, precision_recall_curve, confusion_matrix
+from sklearn.calibration import calibration_curve
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -25,8 +28,6 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
-# Scikit-learn imports for metrics
-from sklearn.metrics import roc_curve, precision_recall_curve, confusion_matrix, calibration_curve
 
 
 class ReadmissionVisualizer:

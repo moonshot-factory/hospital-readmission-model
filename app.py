@@ -18,17 +18,19 @@ from plotly.subplots import make_subplots
 import sys
 import os
 from datetime import datetime
+
+# Import our modules
+from src.data_processing import EHRDataProcessor
+from src.feature_engineering import ComprehensiveFeatureEngineer, MedicalCodeTranslator
+from src.models import ReadmissionPredictor, ClinicalEvaluator
+from src.visualization import ReadmissionVisualizer
+
 import warnings
 warnings.filterwarnings('ignore')
 
 # Add src directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-# Import our modules
-from data_processing import EHRDataProcessor
-from feature_engineering import ComprehensiveFeatureEngineer, MedicalCodeTranslator
-from models import ReadmissionPredictor, ClinicalEvaluator
-from visualization import ReadmissionVisualizer
 
 # Page configuration
 st.set_page_config(

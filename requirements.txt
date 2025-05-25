@@ -1,7 +1,19 @@
-streamlit==1.28.0
-pandas==2.0.3
-numpy==1.24.3
+# Core Data Science Libraries
+pandas==2.2.3
+numpy==2.2.6
 scikit-learn==1.6.1
-plotly==5.15.0
-matplotlib==3.7.2
-seaborn==0.12.2
+
+# Visualization Libraries
+matplotlib==3.10.3
+seaborn==0.13.2
+plotly==6.1.1
+
+# Web Application Framework
+streamlit==1.45.1
+
+# Machine Learning and Statistics
+joblib==1.5.1
+
+# Optional: For enhanced functionality
+jupyter==1.0.0  # Uncomment if running notebooks locally
+ipykernel==6.25.0  # Uncomment if running notebooks locally
