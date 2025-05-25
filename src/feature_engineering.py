@@ -18,6 +18,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
+# Keep MedicalCodeTranslator and TemporalFeatureEngineer unchanged
 class MedicalCodeTranslator:
     """
     Unified medical code translator for handling ICD-9, ICD-10, and local hospital codes.
@@ -632,7 +633,7 @@ class ComprehensiveFeatureEngineer:
     
     def select_final_features(self, df, target_col='readmission_30_day'):
         """
-        Select final features for modeling.
+        Select final features for modeling with proper data type handling.
         
         Args:
             df (pd.DataFrame): DataFrame with all engineered features
@@ -641,16 +642,51 @@ class ComprehensiveFeatureEngineer:
         Returns:
             tuple: (X, y, feature_list)
         """
+        df_model = df.copy()
+        
         # Exclude non-predictive columns
         exclude_cols = [
             'patient_id', 'admission_date', 'diagnosis_codes', 
             'admission_date_parsed', target_col
         ]
         
-        feature_cols = [col for col in df.columns if col not in exclude_cols]
+        # Remove datetime columns and convert to numeric if needed
+        datetime_cols = df_model.select_dtypes(include=['datetime64[ns]']).columns
+        for col in datetime_cols:
+            if col not in exclude_cols:
+                # Convert to numeric (days since reference)
+                reference_date = pd.Timestamp('2014-01-01')
+                df_model[f'{col}_days'] = (df_model[col] - reference_date).dt.days
+            exclude_cols.append(col)
         
-        X = df[feature_cols].copy()
+        # Remove remaining non-numeric columns
+        object_cols = df_model.select_dtypes(include=['object']).columns
+        for col in object_cols:
+            if col not in exclude_cols and not col.endswith(('_std_Female', '_std_Male', '_std_Low', '_std_Medium', '_std_High', '_std_None', '_std_Moderate')):
+                exclude_cols.append(col)
+        
+        # Get feature columns
+        all_cols = set(df_model.columns)
+        exclude_cols_set = set(exclude_cols)
+        feature_cols = list(all_cols - exclude_cols_set)
+        
+        # Ensure all feature columns are numeric
+        X = df_model[feature_cols].copy()
+        
+        # Convert any remaining non-numeric columns
+        for col in X.columns:
+            if X[col].dtype == 'object':
+                # Try to convert to numeric
+                X[col] = pd.to_numeric(X[col], errors='coerce')
+        
+        # Handle any remaining NaN values
+        X = X.fillna(0)
+        
+        # Get target variable
         y = df[target_col].copy() if target_col in df.columns else None
+        
+        print(f"Final feature selection: {len(feature_cols)} features selected")
+        print(f"Feature matrix shape: {X.shape}")
         
         return X, y, feature_cols
     
@@ -746,6 +782,7 @@ if __name__ == "__main__":
     print(f"\nFinal modeling dataset:")
     print(f"Features (X): {X.shape}")
     print(f"Target (y): {y.shape if y is not None else 'Not available'}")
+    print(f"All features are numeric: {X.dtypes.apply(lambda x: pd.api.types.is_numeric_dtype(x)).all()}")
     
     # Feature summary
     summary = feature_engineer.get_feature_summary(featured_data)

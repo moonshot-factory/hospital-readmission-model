@@ -32,7 +32,7 @@ class EHRDataProcessor:
         # Standard mappings for common inconsistencies
         self.gender_mapping = {
             'M': 'Male', 'MALE': 'Male', 'Male': 'Male', 'm': 'Male',
-            'F': 'Female', 'FEMALE': 'Female', 'Female': 'Female', 'f': 'Female',
+            'F': 'Female', 'FEMALE': 'Female', 'Female': 'Female', 'f': 'Female', 'female': 'Female',
             '': 'Unknown', 'Unknown': 'Unknown', 'UNK': 'Unknown', 
             'U': 'Unknown', np.nan: 'Unknown', None: 'Unknown'
         }
@@ -355,6 +355,64 @@ class EHRDataProcessor:
         
         return df_cleaned
     
+    def prepare_for_modeling(self, df, target_col='readmission_30_day'):
+        """
+        Prepare data specifically for machine learning models.
+        This removes non-numeric columns that can't be used in ML models.
+        
+        Args:
+            df (pd.DataFrame): Processed DataFrame
+            target_col (str): Target variable column name
+            
+        Returns:
+            tuple: (X, y, excluded_columns)
+        """
+        df_model = df.copy()
+        excluded_columns = []
+        
+        # Remove datetime columns (convert to numeric features if needed)
+        datetime_cols = df_model.select_dtypes(include=['datetime64[ns]']).columns
+        for col in datetime_cols:
+            if 'date' in col.lower():
+                # Convert to days since reference date for modeling
+                reference_date = pd.Timestamp('2014-01-01')
+                df_model[f'{col}_days'] = (df_model[col] - reference_date).dt.days
+                excluded_columns.append(col)
+                df_model.drop(col, axis=1, inplace=True)
+        
+        # Remove non-numeric object columns that aren't encoded
+        object_cols = df_model.select_dtypes(include=['object']).columns
+        for col in object_cols:
+            if col != target_col and not col.endswith('_std_Female') and not col.endswith('_std_Male'):
+                excluded_columns.append(col)
+                df_model.drop(col, axis=1, inplace=True)
+        
+        # Remove patient ID and other identifier columns
+        id_cols = [col for col in df_model.columns if 'id' in col.lower()]
+        for col in id_cols:
+            excluded_columns.append(col)
+            df_model.drop(col, axis=1, inplace=True)
+        
+        # Split features and target
+        if target_col in df_model.columns:
+            y = df_model[target_col]
+            X = df_model.drop(target_col, axis=1)
+        else:
+            y = None
+            X = df_model
+        
+        # Ensure all remaining columns are numeric
+        non_numeric_cols = X.select_dtypes(exclude=[np.number]).columns
+        for col in non_numeric_cols:
+            excluded_columns.append(col)
+            X.drop(col, axis=1, inplace=True)
+        
+        print(f"Modeling preparation: Excluded {len(excluded_columns)} non-numeric columns")
+        if excluded_columns:
+            print(f"Excluded columns: {excluded_columns[:5]}{'...' if len(excluded_columns) > 5 else ''}")
+        
+        return X, y, excluded_columns
+    
     def process_pipeline(self, df, config=None):
         """
         Complete data processing pipeline.
@@ -374,14 +432,16 @@ class EHRDataProcessor:
                 'parse_dates': True,
                 'handle_outliers': True,
                 'impute_missing': True,
-                'validate_quality': True
+                'validate_quality': True,
+                'prepare_for_modeling': True
             }
         
         processing_report = {
             'original_shape': df.shape,
             'steps_completed': [],
             'issues_found': [],
-            'final_shape': None
+            'final_shape': None,
+            'excluded_columns': []
         }
         
         processed_df = df.copy()
@@ -520,6 +580,13 @@ if __name__ == "__main__":
     print(f"Original shape: {report['original_shape']}")
     print(f"Final shape: {report['final_shape']}")
     print(f"Steps completed: {len(report['steps_completed'])}")
+    
+    # Test modeling preparation
+    print("\nTesting modeling preparation...")
+    X, y, excluded = processor.prepare_for_modeling(processed_data)
+    print(f"Modeling data: {X.shape if X is not None else 'None'}")
+    print(f"Target: {y.shape if y is not None else 'None'}")
+    print(f"Excluded columns: {len(excluded)}")
     
     # Display sample of processed data
     print("\nSample of processed data:")
